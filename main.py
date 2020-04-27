@@ -20,7 +20,8 @@ pycom.heartbeat(False)
 HIGH_ADDRESS = 0x78
 LOW_ADDRESS = 0x77
 
-HIGHT_DATA_LIST = LOW_DATA_LIST = []
+HIGH_DATA_LIST = LOW_DATA_LIST = []
+THRESHOLD = 100
 
 i2c_sensor = I2C(0)
 i2c_sensor.init(mode=I2C.MASTER, baudrate=115200, pins=('P9','P10'))
@@ -32,59 +33,136 @@ for device in devices:
     print("Decimal address: ",device," | Hexa address: ",hex(device))
 
 def getHigh12SectionValue():
-    # high_data = ubinascii.b2a_base64(i2c_sensor.readfrom(HIGH_ADDRESS,12))
-    high_data = i2c_sensor.readfrom(HIGH_ADDRESS,12)
-    print("HIGH DATA : " + str(high_data))
-    HIGHT_DATA_LIST.append(high_data)
-    time.sleep(2)
-
-def getLow8SectionValue():
-    low_data = i2c_sensor.readfrom(LOW_ADDRESS, 8)
-    print("LOW_DATA : " + str(low_data))
-    LOW_DATA_LIST.append(low_data)
-    time.sleep(2)
-
-# count = 0
-# while count < 10:
-#     print("TEST")
-#     getHigh12SectionValue()
-#     getLow8SectionValue()
-#     count += 1
-#     time.sleep(0.5)
-
-while True:
-    # high_data = i2c_sensor.readfrom(HIGH_ADDRESS,12)
+    
     try:
+        HIGH_DATA_LIST = []
         high_data = i2c_sensor.readfrom(HIGH_ADDRESS,12)
-        low_data = i2c_sensor.readfrom(LOW_ADDRESS,8)
-        high_write_to_mem = i2c_sensor.writeto_mem(addr=HIGH_ADDRESS, memaddr=HIGH_ADDRESS, buf=high_data)
-        low_write_to_mem = i2c_sensor.writeto_mem(addr=LOW_ADDRESS, memaddr=LOW_ADDRESS, buf=low_data)
-
-        # i2c_sensor.deinit()
-        print("\n-- READ LEAW --")
-        
+        print("-- READ LEAW [HIGH] --")
+    
     except OSError:
         print("-- ERROR AGAIN ---")
         time.sleep(5)
+    
     else:
-        print("HIGH_DATA : {0:d}".format(high_data[0]))
-        print("LOW_DATA : {0:d}".format(low_data[0]))
-
-        # high_value = struct.unpack("B",high_data[0])
-        # high_value = ubinascii.b2a_base64(high_data)
-        # print("HIGH DATA : " + str(high_value))
-        print("high_write -- " + str(high_write_to_mem))
-        print("low_write -- " + str(low_write_to_mem))
+        print("HIGH_DATA_FROM_FUNCTION : " ,end=" ")
+        for i in range(0,12):
+            HIGH_DATA_LIST.append(high_data[i])
+            print(str(HIGH_DATA_LIST[i]), end=" ")
+        print('\n')
+        time.sleep(0.75)
+    
+def getLow8SectionValue():
+    try:
+        LOW_DATA_LIST = []
+        low_data = i2c_sensor.readfrom(LOW_ADDRESS, 8)
+        print("\n-- READ LEAW [LOW] --")
+    
+    except OSError:
+        print("-- ERROR AGAIN ---")
+        time.sleep(5)
+    
+    else:
+        print("LOW_DATA_FROM_FUNCTION : " ,end=" ")
+        for i in range(0,8):
+            LOW_DATA_LIST.append(low_data[i])
+            print(str(LOW_DATA_LIST[i]), end=" ")
+        print('\n')
         time.sleep(0.75)
 
+def get_water_level():
+    sensorvalue_min = 250
+    sensorvalue_max = 255
+    low_count = 0
+    high_count = 0
 
-# for i in range(8):
-#     high_data.append(high_value)
+    while True:
+        touch_val = trig_section = 0
 
-# print('High data : ', end='\n\n')
-# for i in range(len(high_data)):
-#     print(str(high_data[i]), end='\n')
+        # getLow8SectionValue()
+        try:
+            #RESET_LIST
+            LOW_DATA_LIST = []
+            HIGH_DATA_LIST = []
+            low_data = i2c_sensor.readfrom(LOW_ADDRESS, 8)
+            high_data = i2c_sensor.readfrom(HIGH_ADDRESS,12) 
+            print("\n-- READ LEAW [LOW] && [HIGH] --")
+        
+        except OSError:
+            print("-- ERROR AGAIN ---")
+            time.sleep(5)
+        
+        else:
+            print("LOW_DATA_FROM_FUNCTION : " ,end=" ")
+            for i in range(0,8):
+                LOW_DATA_LIST.append(low_data[i])
+                print(str(LOW_DATA_LIST[i]), end=" ")
+            print('\n')
 
+            print("HIGH_DATA_FROM_FUNCTION : " ,end=" ")
+            for i in range(0,12):
+                HIGH_DATA_LIST.append(high_data[i])
+                print(str(HIGH_DATA_LIST[i]), end=" ")
+            print('\n')
+            time.sleep(0.75)
+
+        time.sleep(1)
+        # getHigh12SectionValue()
+
+        # CHECK_LOW_VALUE
+        try:
+            print("LOW_DATA : " ,end=" ")
+            for i in range(0, len(LOW_DATA_LIST)):
+                print(str(LOW_DATA_LIST[i]), end=" ")
+                if(LOW_DATA_LIST[i] >= sensorvalue_min and LOW_DATA_LIST[i] <= sensorvalue_max):
+                    low_count += 1
+                if(low_count == 8):
+                    print('\n LOW_PASS')
+        except IndexError:
+            print("\n--  LOW-INDEX-ERROR AGAIN  ---")
+            time.sleep(2)
+        
+
+        # CHECK_HIGH_VALUE
+        try:
+            print("\nHIGH_DATA : " ,end=" ")
+            for i in range(0,len(HIGH_DATA_LIST)):
+                print(str(HIGH_DATA_LIST[i]), end=" ")
+                if(HIGH_DATA_LIST[i] >= sensorvalue_min and HIGH_DATA_LIST[i] <= sensorvalue_max):
+                    high_count += 1
+                if(high_count == 12):
+                    print('\n HIGH_PASS')
+            print('\n')
+        except IndexError:
+            print("\n-- HIGH-INDEX-ERROR AGAIN ---")
+            time.sleep(2)
+            
+
+        # CALCULATE_WATER_LEVEL
+        try:
+            for i in range(0,8):
+                if(LOW_DATA_LIST[i] > THRESHOLD):
+                    touch_val |= 1 << i
+            
+            for i in range(0,12):
+                if(HIGH_DATA_LIST[i] > THRESHOLD):
+                    touch_val |= 1 << (8+i)
+
+            time.sleep(1)
+
+
+            while(touch_val and 0x01):
+                trig_section += 1
+                touch_val >>= 1
+            
+            value = trig_section * 5
+            print('water_level : ' + str(value) + " %\n")
+            time.sleep(2)
+
+        except IndexError:
+            print("-- CALCULATE-INDEX-ERROR AGAIN ---\n")
+            time.sleep(2)     
+
+get_water_level()        
 
 
 ########### -------------- WIFI SECTION ------------------ ****************
