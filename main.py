@@ -124,11 +124,11 @@ def create_Json_file():
 def mqtt_publish():
     try:
         while True:
-            print("Publishing...")
+            print("\nPublishing...")
             time.sleep(3)
             mqtt_publish_encoding("/BOARD_1", create_Json_file())
             time.sleep(3)
-            print("Publish : DONE")
+            print("Publish : DONE\n")
             time.sleep(10)
     finally:
         client.disconnect()
