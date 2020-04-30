@@ -20,7 +20,7 @@ pycom.heartbeat(False)
 HIGH_ADDRESS = 0x78
 LOW_ADDRESS = 0x77
 
-HIGH_DATA_LIST = LOW_DATA_LIST = []
+# HIGH_DATA_LIST = LOW_DATA_LIST = []
 THRESHOLD = 100
 
 i2c_sensor = I2C(0)
@@ -95,7 +95,10 @@ def setRTCLocalTime():
     utime.timezone(25200)
     time = utime.localtime()
     # print("SET MANUAL TIME : " + str(time[2]) + "-" + str(time[1]) + "-" + str(time[0]) + " " + str(time[3]+12)+":"+str(time[4])+":"+str(time[5]))
-    if(time[4] < 10):
+    if(time[1] < 10):
+        set_time = str(time[2]) + "/" + "0" + str(time[1]) + "/" + str(time[0]) + " " + str(time[3]) + ":" +str(time[4])+":"+str(time[5])
+
+    elif(time[4] < 10):
         set_time =  str(time[2]) + "/" + str(time[1]) + "/" + str(time[0]) + " " + str(time[3])+":0"+str(time[4])+":"+str(time[5])
 
     elif(time[5] < 10):
@@ -103,6 +106,9 @@ def setRTCLocalTime():
     
     elif(time[4] < 10 and time[5] < 10):
         set_time =  str(time[2]) + "/" + str(time[1]) + "/" + str(time[0]) + " " + str(time[3])+":0"+str(time[4])+":0"+str(time[5])
+    
+    elif(time[4] < 10 and time[5] < 10 and time[1] < 10):
+        set_time =  str(time[2]) + "/" + "0" + str(time[1]) + "/" + str(time[0]) + " " + str(time[3])+":0"+str(time[4])+":0"+str(time[5])
 
     else:
         set_time =  str(time[2]) + "/" + str(time[1]) + "/" + str(time[0]) + " " + str(time[3])+":"+str(time[4])+":"+str(time[5])
@@ -162,7 +168,7 @@ def getHigh12_and_Low8_SectionValue():
         print('\n')
         time.sleep(0.75)
 
-    time.sleep(3)
+    time.sleep(1)
     return LOW_DATA_LIST, HIGH_DATA_LIST
 
 def get_water_level():
@@ -174,11 +180,34 @@ def get_water_level():
     while True:
         # SET_UP
         touch_val = trig_section = 0
-        LOW_DATA_LIST = HIGH_DATA_LIST = []
+        LOW_DATA_LIST = []
+        HIGH_DATA_LIST = []
+        try:
+            low_data = i2c_sensor.readfrom(LOW_ADDRESS, 8)
+            high_data = i2c_sensor.readfrom(HIGH_ADDRESS,12) 
+            print("\n-- READ LEAW [LOW] && [HIGH] --")
+        
+        except OSError:
+            print("-- ERROR AGAIN ---")
+            time.sleep(5)
+        
+        else:
+            # LOW_DATA_LIST = []
+            print("LOW_DATA_FROM_FUNCTION : " ,end=" ")
+            for i in range(0,8):
+                LOW_DATA_LIST.append(low_data[i])
+                print(str(LOW_DATA_LIST[i]), end=" ")
+            print('\n')
+            
+            # HIGH_DATA_LIST = []
+            print("HIGH_DATA_FROM_FUNCTION : " ,end=" ")
+            for i in range(0,12):
+                HIGH_DATA_LIST.append(high_data[i])
+                print(str(HIGH_DATA_LIST[i]), end=" ")
+            print('\n')
+            time.sleep(0.75)
 
-        getHigh12_and_Low8_SectionValue()
-        LOW_DATA_LIST = getHigh12_and_Low8_SectionValue()[0]
-        HIGH_DATA_LIST = getHigh12_and_Low8_SectionValue()[1]
+        time.sleep(1)
 
         # CHECK_LOW_VALUE
         try:
@@ -193,7 +222,6 @@ def get_water_level():
             print("\n--  LOW-INDEX-ERROR AGAIN  ---")
             time.sleep(2)
         
-
         # CHECK_HIGH_VALUE
         try:
             print("\nHIGH_DATA : " ,end=" ")
@@ -207,7 +235,7 @@ def get_water_level():
         except IndexError:
             print("\n-- HIGH-INDEX-ERROR AGAIN ---")
             time.sleep(2)
-            
+        
         # CALCULATE_WATER_LEVEL
         try:
             for i in range(0,8):
